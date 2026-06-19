@@ -13,71 +13,30 @@ def load_config(path="config.yaml"):
         return yaml.safe_load(f)
 
 
-def search_kiwi(origin, destination, cfg, api_key):
-    s = cfg["settings"]
-    date_from = datetime.now().strftime("%d/%m/%Y")
-    date_to = (datetime.now() + timedelta(days=s["days_ahead"])).strftime("%d/%m/%Y")
-    url = "https://tequila-api.kiwi.com/v2/search"
-    params = {
-        "fly_from": origin,
-        "fly_to": destination["code"],
-        "date_from": date_from,
-        "date_to": date_to,
-        "nights_in_dst_from": s["nights_min"],
-        "nights_in_dst_to": s["nights_max"],
-        "flight_type": "round",
-        "adults": s["adults"],
-        "currency": s["currency"],
-        "limit": 3,
-        "sort": "price",
-        "one_for_city": 1,
-    }
-    headers = {"apikey": api_key}
-    try:
-        resp = requests.get(url, params=params, headers=headers, timeout=15)
-        resp.raise_for_status()
-        data = resp.json()
-        results = []
-        for flight in data.get("data", []):
-            results.append({
-                "source": "Kiwi",
-                "origin": origin,
-                "destination": destination["code"],
-                "destination_name": destination["name"],
-                "price": flight["price"],
-                "currency": s["currency"],
-                "departure": flight["local_departure"][:10],
-                "return": flight["route"][-1]["local_arrival"][:10] if flight.get("route") else "?",
-                "duration_h": round(flight.get("duration", {}).get("total", 0) / 3600, 1),
-                "airlines": ", ".join(set(r.get("airline", "") for r in flight.get("route", []))),
-                "link": flight.get("deep_link", "https://www.kiwi.com"),
-                "threshold": destination["threshold"],
-            })
-        return results
-    except Exception as e:
-        print(f"  Kiwi error {origin}->{destination['code']}: {e}")
-        return []
-
-
 def search_aviasales(origin, destination, cfg, token):
     s = cfg["settings"]
-    url = "https://api.travelpayouts.com/v1/prices/cheap"
+    url = "https://api.travelpayouts.com/v2/prices/latest"
     params = {
         "origin": origin,
         "destination": destination["code"],
         "currency": s["currency"],
         "token": token,
+        "limit": 3,
+        "sorting": "price",
+        "trip_class": 0,
+        "one_way": False,
+        "period_type": "month",
     }
     try:
         resp = requests.get(url, params=params, timeout=15)
         resp.raise_for_status()
         data = resp.json()
         results = []
-        flights = data.get("data", {}).get(destination["code"], {})
-        for _, flight in list(flights.items())[:3]:
-            price = flight.get("price", 0)
+        for flight in data.get("data", []):
+            price = flight.get("value", 0)
             depart_date = flight.get("depart_date", "?")
             return_date = flight.get("return_date", "?")
+            airline = flight.get("airline", "?")
             results.append({
                 "source": "Aviasales",
                 "origin": origin,
@@ -87,9 +46,8 @@ def search_aviasales(origin, destination, cfg, token):
                 "currency": s["currency"],
                 "departure": depart_date,
                 "return": return_date,
-                "duration_h": "?",
-                "airlines": flight.get("airline", "?"),
-                "link": f"https://www.aviasales.ru/search/{origin}{depart_date.replace('-','')}{destination['code']}1",
+                "airlines": airline,
+                "link": f"https://www.aviasales.com/search/{origin}{depart_date.replace('-','')}{destination['code']}1",
                 "threshold": destination["threshold"],
             })
         return results
@@ -154,10 +112,9 @@ def send_email(alerts, cfg):
 
 def main():
     cfg = load_config()
-    kiwi_key = os.environ.get("KIWI_API_KEY", "")
     aviasales_token = os.environ.get("AVIASALES_TOKEN", "")
-    if not kiwi_key and not aviasales_token:
-        print("Нет API ключей. Установи KIWI_API_KEY и/или AVIASALES_TOKEN.")
+    if not aviasales_token:
+        print("Нет API ключей. Установи AVIASALES_TOKEN.")
         return
     origins = cfg["origins"]
     destinations = cfg["destinations"]
@@ -166,16 +123,13 @@ def main():
     for origin in origins:
         for dest in destinations:
             print(f"  {origin} → {dest['code']} ({dest['name']})")
-            if kiwi_key:
-                all_results.extend(search_kiwi(origin, dest, cfg, kiwi_key))
-            if aviasales_token:
-                all_results.extend(search_aviasales(origin, dest, cfg, aviasales_token))
+            all_results.extend(search_aviasales(origin, dest, cfg, aviasales_token))
     alerts = [r for r in all_results if r["price"] > 0 and r["price"] <= r["threshold"]]
     alerts.sort(key=lambda x: x["price"])
     print(f"\nВсего вариантов: {len(all_results)}, ниже порога: {len(alerts)}")
     if alerts:
         for a in alerts:
-            print(f"  {a['origin']}→{a['destination']} ({a['destination_name']}): €{a['price']} | {a['departure']} | {a['source']}")
+            print(f"  {a['origin']}→{a['destination']} ({a['destination_name']}): €{a['price']} | {a['departure']} → {a['return']} | {a['airlines']}")
         send_email(alerts, cfg)
     else:
         print("Дешёвых рейсов не найдено.")
