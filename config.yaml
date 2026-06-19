@@ -1,0 +1,73 @@
+# ✈️ Flight Price Monitor — Config
+settings:
+  currency: EUR
+  nights_min: 2
+  nights_max: 14
+  days_ahead: 90
+  adults: 1
+
+email:
+  smtp_server: smtp.gmail.com
+  smtp_port: 587
+  sender: ""
+  recipient: ""
+
+origins:
+  - RIX
+  - KUN
+
+destinations:
+  - code: BCN
+    name: "Барселона"
+    threshold: 80
+  - code: MXP
+    name: "Милан (Мальпенса)"
+    threshold: 80
+  - code: BGY
+    name: "Милан (Бергамо)"
+    threshold: 80
+  - code: TSF
+    name: "Тревизо"
+    threshold: 75
+  - code: AMS
+    name: "Амстердам"
+    threshold: 80
+  - code: EIN
+    name: "Эйндховен"
+    threshold: 75
+  - code: ARN
+    name: "Стокгольм Арланда"
+    threshold: 85
+  - code: NYO
+    name: "Стокгольм Скавста"
+    threshold: 80
+  - code: OSL
+    name: "Осло Гардермун"
+    threshold: 90
+  - code: TRF
+    name: "Осло Санефьорд"
+    threshold: 85
+  - code: BRU
+    name: "Брюссель"
+    threshold: 80
+  - code: CRL
+    name: "Брюссель Шарлеруа"
+    threshold: 75
+  - code: CDG
+    name: "Париж CDG"
+    threshold: 80
+  - code: BVA
+    name: "Париж Бове"
+    threshold: 75
+  - code: VLC
+    name: "Валенсия"
+    threshold: 80
+  - code: LIS
+    name: "Лиссабон"
+    threshold: 90
+  - code: KRK
+    name: "Краков"
+    threshold: 60
+  - code: WAW
+    name: "Варшава"
+    threshold: 55
